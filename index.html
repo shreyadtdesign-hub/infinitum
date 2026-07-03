@@ -12,17 +12,19 @@
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+  html {
+    overflow-x: hidden;
+  }
+
   html, body {
     background: #04101A;
     color: #EAF3F1;
-    overflow-x: hidden;
   }
 
   /* ── TRACKS ─────────────────────────────────────────────── */
   .track {
     position: relative;
     width: 100%;
-    overflow: hidden;
   }
 
   #track-reef    { height: 320vh; }
@@ -441,7 +443,7 @@ function updateText() {
 
   // HERO: reef progress 0.00-0.15 → combined 0 to 0.15*REEF_W
   const heroMax  = 0.15 * REEF_W;
-  const heroFade = fadeValue(combined, 0, 0.01, heroMax * 0.7, heroMax);
+  const heroFade = fadeValue(combined, -0.001, 0, heroMax * 0.7, heroMax);
   textHero.style.opacity = heroFade;
 
   // PERSONAL: reef progress 0.55-0.78 → combined
