@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>INFINITUM</title>
+<link rel="stylesheet" href="https://unpkg.com/lenis@1.3.23/dist/lenis.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<script src="https://unpkg.com/lenis@1.3.23/dist/lenis.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;1,9..144,400&family=Space+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    background: #04101A;
+    color: #EAF3F1;
+    overflow-x: hidden;
+  }
+
+  /* ── TRACKS ─────────────────────────────────────────────── */
+  .track {
+    position: relative;
+    width: 100%;
+    overflow: hidden;
+  }
+
+  #track-reef    { height: 320vh; }
+  #track-deep    { height: 420vh; }
+  #track-current { height: 300vh; }
+
+  .track-sticky {
+    position: sticky;
+    top: 0;
+    width: 100%;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  .track-video {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+  }
+
+  .track-poster {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+    transition: opacity 0.4s;
+    z-index: 1;
+  }
+
+  .track-poster.hidden { opacity: 0; pointer-events: none; }
+
+  /* ── FISH LAYER ──────────────────────────────────────────── */
+  .fish-layer {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 18vw;
+    height: auto;
+    min-width: 120px;
+    max-width: 280px;
+    transform: translate(-50%, -50%);
+    z-index: 50;
+    pointer-events: none;
+    will-change: transform;
+  }
+
+  /* ── TEXT OVERLAYS ───────────────────────────────────────── */
+  .text-overlay {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 60;
+    pointer-events: none;
+    opacity: 0;
+    text-align: center;
+    padding: 0 5vw;
+  }
+
+  .text-overlay.active { pointer-events: none; }
+
+  /* ── CHROME ──────────────────────────────────────────────── */
+  #wordmark {
+    position: fixed;
+    top: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: 'Fraunces', serif;
+    font-size: 14px;
+    letter-spacing: 6px;
+    color: #EAF3F1;
+    z-index: 100;
+    user-select: none;
+    text-transform: uppercase;
+  }
+
+  #corner-link {
+    position: fixed;
+    top: 24px;
+    right: 28px;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 11px;
+    color: rgba(234,243,241,0.5);
+    text-decoration: none;
+    z-index: 100;
+    letter-spacing: 0.5px;
+    transition: color 0.2s;
+  }
+  #corner-link:hover { color: rgba(234,243,241,0.85); }
+
+  /* ── HERO TEXT ───────────────────────────────────────────── */
+  #text-hero .hero-main {
+    font-family: 'Fraunces', serif;
+    font-size: clamp(28px, 5vw, 40px);
+    font-weight: 400;
+    color: #EAF3F1;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    line-height: 1.1;
+    margin-bottom: 16px;
+  }
+  #text-hero .hero-sub {
+    font-family: 'Fraunces', serif;
+    font-size: clamp(10px, 1.5vw, 12px);
+    font-weight: 400;
+    color: rgba(234,243,241,0.5);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+  }
+
+  /* ── PERSONAL TEXT ───────────────────────────────────────── */
+  #text-personal .personal-main {
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-size: clamp(20px, 3.5vw, 28px);
+    font-weight: 400;
+    color: #EAF3F1;
+    line-height: 1.3;
+    margin-bottom: 14px;
+    max-width: 600px;
+  }
+  #text-personal .personal-sub {
+    font-family: 'Fraunces', serif;
+    font-size: clamp(11px, 1.5vw, 13px);
+    font-weight: 400;
+    color: rgba(234,243,241,0.6);
+    letter-spacing: 0.5px;
+  }
+
+  /* ── CLOSING TEXT ────────────────────────────────────────── */
+  #text-closing .closing-main {
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-size: clamp(13px, 2vw, 16px);
+    font-weight: 400;
+    color: #EAF3F1;
+    letter-spacing: 0.5px;
+    line-height: 1.5;
+    max-width: 520px;
+  }
+</style>
+</head>
+<body>
+
+<!-- ── WORDMARK + CORNER LINK ──────────────────────────────── -->
+<div id="wordmark">INFINITUM</div>
+<a id="corner-link" href="https://shreya.design">← shreya.design</a>
+
+<!-- ── TRACKS ──────────────────────────────────────────────── -->
+<div id="track-reef" class="track">
+  <div class="track-sticky">
+    <video class="track-video" id="video-reef" muted playsinline preload="none">
+      <source src="reef-house.mp4" type="video/mp4">
+    </video>
+    <img class="track-poster" id="poster-reef" src="poster-reef.png.png" alt="">
+  </div>
+</div>
+
+<div id="track-deep" class="track">
+  <div class="track-sticky">
+    <video class="track-video" id="video-deep" muted playsinline preload="none">
+      <source src="the-deep.mp4" type="video/mp4">
+    </video>
+    <img class="track-poster" id="poster-deep" src="poster-deep.png.png" alt="">
+  </div>
+</div>
+
+<div id="track-current" class="track">
+  <div class="track-sticky">
+    <video class="track-video" id="video-current" muted playsinline preload="none">
+      <source src="current.mp4" type="video/mp4">
+    </video>
+    <img class="track-poster" id="poster-current" src="poster-current.png.png" alt="">
+  </div>
+</div>
+
+<!-- ── FISH LAYER ───────────────────────────────────────────── -->
+<video class="fish-layer" id="fish" muted playsinline loop autoplay>
+  <source src="fish-idle.webm" type="video/webm">
+</video>
+
+<!-- ── TEXT OVERLAYS ────────────────────────────────────────── -->
+<div class="text-overlay" id="text-hero">
+  <div class="hero-main">Follow the Life</div>
+  <div class="hero-sub">The Ocean Is Endless</div>
+</div>
+
+<div class="text-overlay" id="text-personal">
+  <div class="personal-main">I design things I'd want to live inside.</div>
+  <div class="personal-sub">Shreya — Digital Designer</div>
+</div>
+
+<div class="text-overlay" id="text-closing">
+  <div class="closing-main">Lost in the depths, found in the infinite.</div>
+</div>
+
+<script>
+// ── LENIS ───────────────────────────────────────────────────
+const lenis = new Lenis({ lerp: 0.075, smoothWheel: true, syncTouch: true });
+lenis.on("scroll", ScrollTrigger.update);
+gsap.ticker.add((time) => { lenis.raf(time * 1000); });
+gsap.ticker.lagSmoothing(0);
+
+// ── BACKGROUND SCRUB ENGINE ─────────────────────────────────
+function bindScrubTrack(track, video, onProgress) {
+  let ticking = false, duration = 0, initialized = false;
+  const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
+
+  function update() {
+    if (!initialized || !duration || !Number.isFinite(duration)) return;
+    const total = track.offsetHeight - window.innerHeight;
+    const rect = track.getBoundingClientRect();
+    const passed = clamp(-rect.top, 0, total);
+    const progress = total > 0 ? passed / total : 0;
+    if (video.readyState >= 2)
+      video.currentTime = clamp(progress * duration, 0, duration);
+    onProgress(progress);
+  }
+
+  function requestTick() {
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(() => { update(); ticking = false; });
+  }
+
+  function initScrub() {
+    duration = video.duration;
+    if (!duration || !Number.isFinite(duration)) return;
+    video.pause();
+    video.currentTime = 0;
+    initialized = true;
+    window.addEventListener("scroll", requestTick, { passive: true });
+    window.addEventListener("resize", requestTick);
+    if (typeof lenis !== "undefined") lenis.on("scroll", requestTick);
+    requestTick();
+  }
+
+  if (video.readyState >= 2) initScrub();
+  else {
+    video.addEventListener("loadedmetadata", initScrub, { once: true });
+    video.addEventListener("loadeddata", initScrub, { once: true });
+  }
+
+  return { requestVideoLoad: () => video.load() };
+}
+
+// ── TRACK REFERENCES ─────────────────────────────────────────
+const trackReef    = document.getElementById("track-reef");
+const trackDeep    = document.getElementById("track-deep");
+const trackCurrent = document.getElementById("track-current");
+
+const videoReef    = document.getElementById("video-reef");
+const videoDeep    = document.getElementById("video-deep");
+const videoCurrent = document.getElementById("video-current");
+
+const posterReef    = document.getElementById("poster-reef");
+const posterDeep    = document.getElementById("poster-deep");
+const posterCurrent = document.getElementById("poster-current");
+
+// Track progress values (updated by bindScrubTrack callbacks)
+let progressReef = 0, progressDeep = 0, progressCurrent = 0;
+
+// Hide poster once video has enough data
+function hidePosterWhenReady(video, poster) {
+  function check() {
+    if (video.readyState >= 2) {
+      poster.classList.add("hidden");
+    }
+  }
+  if (video.readyState >= 2) {
+    poster.classList.add("hidden");
+  } else {
+    video.addEventListener("loadeddata", check, { once: true });
+  }
+}
+
+const reefScrub    = bindScrubTrack(trackReef, videoReef, (p) => {
+  progressReef = p;
+  hidePosterWhenReady(videoReef, posterReef);
+  updateFish();
+  updateText();
+});
+const deepScrub    = bindScrubTrack(trackDeep, videoDeep, (p) => {
+  progressDeep = p;
+  hidePosterWhenReady(videoDeep, posterDeep);
+  updateFish();
+  updateText();
+});
+const currentScrub = bindScrubTrack(trackCurrent, videoCurrent, (p) => {
+  progressCurrent = p;
+  hidePosterWhenReady(videoCurrent, posterCurrent);
+  updateFish();
+  updateText();
+  checkLoopWrap(p);
+});
+
+// ── LAZY LOAD via IntersectionObserver ───────────────────────
+const lazyObs = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      const trackEl = entry.target;
+      if (trackEl === trackReef) reefScrub.requestVideoLoad();
+      else if (trackEl === trackDeep) deepScrub.requestVideoLoad();
+      else if (trackEl === trackCurrent) currentScrub.requestVideoLoad();
+      lazyObs.unobserve(trackEl);
+    }
+  });
+}, { rootMargin: "100% 0px" });
+
+lazyObs.observe(trackReef);
+lazyObs.observe(trackDeep);
+lazyObs.observe(trackCurrent);
+
+// ── COMBINED SCROLL PROGRESS ─────────────────────────────────
+// Weights: reef=320vh, deep=420vh, current=300vh → total=1040vh
+// Combined progress maps 0→1 across all three tracks
+const TOTAL_H = 320 + 420 + 300; // vh-proportional units
+const REEF_W = 320 / TOTAL_H;
+const DEEP_W = 420 / TOTAL_H;
+const CURR_W = 300 / TOTAL_H;
+
+function getCombinedProgress() {
+  // Which track are we in?
+  const reefRect    = trackReef.getBoundingClientRect();
+  const deepRect    = trackDeep.getBoundingClientRect();
+  const currRect    = trackCurrent.getBoundingClientRect();
+
+  // Use scrollTop-based approach for reliability
+  const scrollY = window.scrollY;
+  const reefHeight    = trackReef.offsetHeight    - window.innerHeight;
+  const deepStart     = trackReef.offsetHeight;
+  const deepHeight    = trackDeep.offsetHeight    - window.innerHeight;
+  const currentStart  = trackReef.offsetHeight + trackDeep.offsetHeight;
+  const currentHeight = trackCurrent.offsetHeight - window.innerHeight;
+
+  let combined = 0;
+  if (scrollY <= trackReef.offsetHeight) {
+    // In reef track
+    const p = reefHeight > 0 ? Math.min(Math.max(scrollY / reefHeight, 0), 1) : 0;
+    combined = p * REEF_W;
+  } else if (scrollY <= currentStart) {
+    // In deep track
+    const pDeep = deepHeight > 0
+      ? Math.min(Math.max((scrollY - deepStart) / deepHeight, 0), 1) : 0;
+    combined = REEF_W + pDeep * DEEP_W;
+  } else {
+    // In current track
+    const pCurr = currentHeight > 0
+      ? Math.min(Math.max((scrollY - currentStart) / currentHeight, 0), 1) : 0;
+    combined = REEF_W + DEEP_W + pCurr * CURR_W;
+  }
+  return Math.min(Math.max(combined, 0), 1);
+}
+
+// ── FISH LAYER ───────────────────────────────────────────────
+const fishEl = document.getElementById("fish");
+
+const fishPath = [
+  { progress: 0.00, xPercent: 50, yPercent: 60, scale: 1.0,  flip: false },
+  { progress: 0.15, xPercent: 30, yPercent: 45, scale: 1.1,  flip: true  },
+  { progress: 0.30, xPercent: 65, yPercent: 55, scale: 0.9,  flip: false },
+  { progress: 0.45, xPercent: 40, yPercent: 40, scale: 1.0,  flip: true  },
+  { progress: 0.60, xPercent: 55, yPercent: 60, scale: 1.0,  flip: false },
+  { progress: 0.75, xPercent: 35, yPercent: 50, scale: 0.85, flip: true  },
+  { progress: 0.90, xPercent: 50, yPercent: 45, scale: 1.0,  flip: false },
+  { progress: 1.00, xPercent: 50, yPercent: 60, scale: 1.0,  flip: false },
+];
+
+function lerp(a, b, t) { return a + (b - a) * t; }
+
+function updateFish() {
+  const p = getCombinedProgress();
+  let i = 0;
+  for (let j = 0; j < fishPath.length - 1; j++) {
+    if (p >= fishPath[j].progress && p <= fishPath[j + 1].progress) {
+      i = j; break;
+    }
+    if (j === fishPath.length - 2) i = j;
+  }
+  const a = fishPath[i];
+  const b = fishPath[i + 1];
+  const t = a.progress === b.progress ? 0 : (p - a.progress) / (b.progress - a.progress);
+  const x  = lerp(a.xPercent, b.xPercent, t);
+  const y  = lerp(a.yPercent, b.yPercent, t);
+  const sc = lerp(a.scale, b.scale, t);
+  const flip = t < 0.5 ? a.flip : b.flip;
+
+  fishEl.style.left = x + "vw";
+  fishEl.style.top  = y + "vh";
+  fishEl.style.transform =
+    `translate(-50%,-50%) scaleX(${flip ? -1 : 1}) scale(${sc})`;
+}
+
+// ── TEXT OVERLAYS ─────────────────────────────────────────────
+const textHero     = document.getElementById("text-hero");
+const textPersonal = document.getElementById("text-personal");
+const textClosing  = document.getElementById("text-closing");
+
+function fadeValue(p, inStart, inEnd, outStart, outEnd) {
+  if (p < inStart) return 0;
+  if (p < inEnd) return (p - inStart) / (inEnd - inStart);
+  if (p < outStart) return 1;
+  if (p < outEnd) return 1 - (p - outStart) / (outEnd - outStart);
+  return 0;
+}
+
+function updateText() {
+  const combined = getCombinedProgress();
+
+  // HERO: reef progress 0.00-0.15 → combined 0 to 0.15*REEF_W
+  const heroMax  = 0.15 * REEF_W;
+  const heroFade = fadeValue(combined, 0, 0.01, heroMax * 0.7, heroMax);
+  textHero.style.opacity = heroFade;
+
+  // PERSONAL: reef progress 0.55-0.78 → combined
+  const pMin = (0.55 * REEF_W);
+  const pMax = (0.78 * REEF_W);
+  const persFade = fadeValue(combined, pMin, pMin + 0.015, pMax - 0.01, pMax);
+  textPersonal.style.opacity = persFade;
+
+  // CLOSING: current track progress 0.85-1.0 → combined REEF_W+DEEP_W + 0.85*CURR_W
+  const cMin = REEF_W + DEEP_W + 0.85 * CURR_W;
+  const cMax = REEF_W + DEEP_W + 1.00 * CURR_W;
+  const closeFade = fadeValue(combined, cMin, cMin + 0.01, cMax - 0.005, cMax);
+  textClosing.style.opacity = closeFade;
+}
+
+// ── LOOP WRAP ────────────────────────────────────────────────
+let loopCooldown = false;
+let dartTimeout  = null;
+
+function checkLoopWrap(currentProgress) {
+  if (loopCooldown) return;
+  if (currentProgress >= 0.995) {
+    loopCooldown = true;
+
+    // Fish dart swap
+    fishEl.src = "fish-dart.webm";
+    fishEl.load();
+    fishEl.play().catch(() => {});
+
+    // Jump scroll back to top
+    lenis.scrollTo(0, { immediate: true });
+    videoReef.currentTime = 0;
+
+    // Restore idle fish after 1s
+    dartTimeout = setTimeout(() => {
+      fishEl.src = "fish-idle.webm";
+      fishEl.load();
+      fishEl.play().catch(() => {});
+
+      // Release cooldown after another 200ms
+      setTimeout(() => { loopCooldown = false; }, 200);
+    }, 1000);
+
+    // Safety release
+    setTimeout(() => { loopCooldown = false; }, 1600);
+  }
+}
+
+// ── ALSO DRIVE updateFish ON SCROLL ──────────────────────────
+window.addEventListener("scroll", () => { updateFish(); updateText(); }, { passive: true });
+lenis.on("scroll", () => { updateFish(); updateText(); });
+
+// ── INIT ─────────────────────────────────────────────────────
+updateFish();
+updateText();
+
+ScrollTrigger.refresh();
+</script>
+</body>
+</html>
