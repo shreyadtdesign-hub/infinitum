@@ -278,7 +278,7 @@ function bindScrubTrack(track, video, onProgress) {
     video.addEventListener("loadeddata", initScrub, { once: true });
   }
 
-  return { requestVideoLoad: () => video.load() };
+  return { requestVideoLoad: () => video.load(), requestTick };
 }
 
 // ── TRACK REFERENCES ─────────────────────────────────────────
@@ -297,39 +297,47 @@ const posterCurrent = document.getElementById("poster-current");
 // Track progress values (updated by bindScrubTrack callbacks)
 let progressReef = 0, progressDeep = 0, progressCurrent = 0;
 
-// Hide poster once video has enough data
-function hidePosterWhenReady(video, poster) {
-  function check() {
-    if (video.readyState >= 2) {
-      poster.classList.add("hidden");
-    }
+// Hide poster once video has enough data — driven by the video's own
+// readiness events, not by scroll ticks, so it reveals even if the user
+// isn't scrolling at the moment the video finishes buffering.
+function hidePosterWhenReady(video, poster, onReveal) {
+  function reveal() {
+    if (video.readyState < 2) return;
+    poster.classList.add("hidden");
+    video.removeEventListener("loadeddata", reveal);
+    video.removeEventListener("canplay", reveal);
+    video.removeEventListener("canplaythrough", reveal);
+    if (onReveal) onReveal();
   }
   if (video.readyState >= 2) {
-    poster.classList.add("hidden");
+    reveal();
   } else {
-    video.addEventListener("loadeddata", check, { once: true });
+    video.addEventListener("loadeddata", reveal);
+    video.addEventListener("canplay", reveal);
+    video.addEventListener("canplaythrough", reveal);
   }
 }
 
 const reefScrub    = bindScrubTrack(trackReef, videoReef, (p) => {
   progressReef = p;
-  hidePosterWhenReady(videoReef, posterReef);
   updateFish();
   updateText();
 });
 const deepScrub    = bindScrubTrack(trackDeep, videoDeep, (p) => {
   progressDeep = p;
-  hidePosterWhenReady(videoDeep, posterDeep);
   updateFish();
   updateText();
 });
 const currentScrub = bindScrubTrack(trackCurrent, videoCurrent, (p) => {
   progressCurrent = p;
-  hidePosterWhenReady(videoCurrent, posterCurrent);
   updateFish();
   updateText();
   checkLoopWrap(p);
 });
+
+hidePosterWhenReady(videoReef, posterReef, () => reefScrub.requestTick());
+hidePosterWhenReady(videoDeep, posterDeep, () => deepScrub.requestTick());
+hidePosterWhenReady(videoCurrent, posterCurrent, () => currentScrub.requestTick());
 
 // ── LAZY LOAD via IntersectionObserver ───────────────────────
 const lazyObs = new IntersectionObserver((entries) => {
