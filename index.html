@@ -21,7 +21,7 @@
     color: #EAF3F1;
   }
 
-  /* ── TRACKS ─────────────────────────────────────────────── */
+  /* ── TRACKS (invisible scroll-length spacers) ──────────────── */
   .track {
     position: relative;
     width: 100%;
@@ -31,12 +31,25 @@
   #track-deep    { height: 420vh; }
   #track-current { height: 300vh; }
 
-  .track-sticky {
-    position: sticky;
-    top: 0;
+  /* ── SCENE LAYERS (fixed, cross-fade via JS on .scene-inner) ─ */
+  .scene-layer {
+    position: fixed;
+    inset: 0;
     width: 100%;
     height: 100vh;
+    height: 100dvh;
     overflow: hidden;
+  }
+
+  #scene-reef    { z-index: 1; }
+  #scene-deep    { z-index: 2; }
+  #scene-current { z-index: 3; }
+
+  .scene-inner {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
   }
 
   .track-video {
@@ -97,8 +110,7 @@
   #wordmark {
     position: fixed;
     top: 24px;
-    left: 50%;
-    transform: translateX(-50%);
+    left: 24px;
     font-family: 'Fraunces', serif;
     font-size: 14px;
     letter-spacing: 6px;
@@ -142,25 +154,6 @@
     text-transform: uppercase;
   }
 
-  /* ── PERSONAL TEXT ───────────────────────────────────────── */
-  #text-personal .personal-main {
-    font-family: 'Fraunces', serif;
-    font-style: italic;
-    font-size: clamp(20px, 3.5vw, 28px);
-    font-weight: 400;
-    color: #EAF3F1;
-    line-height: 1.3;
-    margin-bottom: 14px;
-    max-width: 600px;
-  }
-  #text-personal .personal-sub {
-    font-family: 'Fraunces', serif;
-    font-size: clamp(11px, 1.5vw, 13px);
-    font-weight: 400;
-    color: rgba(234,243,241,0.6);
-    letter-spacing: 0.5px;
-  }
-
   /* ── CLOSING TEXT ────────────────────────────────────────── */
   #text-closing .closing-main {
     font-family: 'Fraunces', serif;
@@ -180,9 +173,14 @@
 <div id="wordmark">INFINITUM</div>
 <a id="corner-link" href="https://shreya.design">← shreya.design</a>
 
-<!-- ── TRACKS ──────────────────────────────────────────────── -->
-<div id="track-reef" class="track">
-  <div class="track-sticky">
+<!-- ── TRACKS (invisible scroll-length spacers only) ─────────── -->
+<div id="track-reef" class="track"></div>
+<div id="track-deep" class="track"></div>
+<div id="track-current" class="track"></div>
+
+<!-- ── SCENE LAYERS (fixed, cross-faded via JS) ───────────────── -->
+<div class="scene-layer" id="scene-reef">
+  <div class="scene-inner" id="scene-reef-inner">
     <video class="track-video" id="video-reef" muted playsinline preload="none">
       <source src="reef-house.webm" type="video/webm">
       <source src="reef-house.mp4" type="video/mp4">
@@ -191,8 +189,8 @@
   </div>
 </div>
 
-<div id="track-deep" class="track">
-  <div class="track-sticky">
+<div class="scene-layer" id="scene-deep">
+  <div class="scene-inner" id="scene-deep-inner">
     <video class="track-video" id="video-deep" muted playsinline preload="none">
       <source src="the-deep.webm" type="video/webm">
       <source src="the-deep.mp4" type="video/mp4">
@@ -201,8 +199,8 @@
   </div>
 </div>
 
-<div id="track-current" class="track">
-  <div class="track-sticky">
+<div class="scene-layer" id="scene-current">
+  <div class="scene-inner" id="scene-current-inner">
     <video class="track-video" id="video-current" muted playsinline preload="none">
       <source src="current.webm" type="video/webm">
       <source src="current.mp4" type="video/mp4">
@@ -222,11 +220,6 @@
   <div class="hero-sub">The Ocean Is Endless</div>
 </div>
 
-<div class="text-overlay" id="text-personal">
-  <div class="personal-main">I design things I'd want to live inside.</div>
-  <div class="personal-sub">Shreya — Digital Designer</div>
-</div>
-
 <div class="text-overlay" id="text-closing">
   <div class="closing-main">Lost in the depths, found in the infinite.</div>
 </div>
@@ -238,50 +231,12 @@ lenis.on("scroll", ScrollTrigger.update);
 gsap.ticker.add((time) => { lenis.raf(time * 1000); });
 gsap.ticker.lagSmoothing(0);
 
-// ── BACKGROUND SCRUB ENGINE ─────────────────────────────────
-function bindScrubTrack(track, video, onProgress) {
-  let ticking = false, duration = 0, initialized = false;
-  const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
+// ── HELPERS ────────────────────────────────────────────────
+const clamp   = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
+const clamp01 = (v) => clamp(v, 0, 1);
+const lerp    = (a, b, t) => a + (b - a) * t;
 
-  function update() {
-    if (!initialized || !duration || !Number.isFinite(duration)) return;
-    const total = track.offsetHeight - window.innerHeight;
-    const rect = track.getBoundingClientRect();
-    const passed = clamp(-rect.top, 0, total);
-    const progress = total > 0 ? passed / total : 0;
-    if (video.readyState >= 2)
-      video.currentTime = clamp(progress * duration, 0, duration);
-    onProgress(progress);
-  }
-
-  function requestTick() {
-    if (ticking) return;
-    ticking = true;
-    requestAnimationFrame(() => { update(); ticking = false; });
-  }
-
-  function initScrub() {
-    duration = video.duration;
-    if (!duration || !Number.isFinite(duration)) return;
-    video.pause();
-    video.currentTime = 0;
-    initialized = true;
-    window.addEventListener("scroll", requestTick, { passive: true });
-    window.addEventListener("resize", requestTick);
-    if (typeof lenis !== "undefined") lenis.on("scroll", requestTick);
-    requestTick();
-  }
-
-  if (video.readyState >= 2) initScrub();
-  else {
-    video.addEventListener("loadedmetadata", initScrub, { once: true });
-    video.addEventListener("loadeddata", initScrub, { once: true });
-  }
-
-  return { requestVideoLoad: () => video.load(), requestTick };
-}
-
-// ── TRACK REFERENCES ─────────────────────────────────────────
+// ── TRACK REFERENCES (invisible scroll-length spacers) ────────
 const trackReef    = document.getElementById("track-reef");
 const trackDeep    = document.getElementById("track-deep");
 const trackCurrent = document.getElementById("track-current");
@@ -294,59 +249,61 @@ const posterReef    = document.getElementById("poster-reef");
 const posterDeep    = document.getElementById("poster-deep");
 const posterCurrent = document.getElementById("poster-current");
 
-// Track progress values (updated by bindScrubTrack callbacks)
-let progressReef = 0, progressDeep = 0, progressCurrent = 0;
+const sceneReefInner    = document.getElementById("scene-reef-inner");
+const sceneDeepInner    = document.getElementById("scene-deep-inner");
+const sceneCurrentInner = document.getElementById("scene-current-inner");
+
+// Per-track progress (0-1 across just that track's own scroll range)
+function trackLocalProgress(track) {
+  const total = track.offsetHeight - window.innerHeight;
+  const rect = track.getBoundingClientRect();
+  const passed = clamp(-rect.top, 0, total);
+  return total > 0 ? passed / total : 0;
+}
+
+// ── VIDEO DURATIONS ────────────────────────────────────────────
+let durationReef = 0, durationDeep = 0, durationCurrent = 0;
+function captureDuration(video, setDuration) {
+  function onMeta() {
+    if (video.duration && Number.isFinite(video.duration)) setDuration(video.duration);
+  }
+  if (video.readyState >= 1 && video.duration && Number.isFinite(video.duration)) onMeta();
+  else video.addEventListener("loadedmetadata", onMeta, { once: true });
+}
+captureDuration(videoReef, (d) => { durationReef = d; videoReef.pause(); });
+captureDuration(videoDeep, (d) => { durationDeep = d; videoDeep.pause(); });
+captureDuration(videoCurrent, (d) => { durationCurrent = d; videoCurrent.pause(); });
 
 // Hide poster once video has enough data — driven by the video's own
 // readiness events, not by scroll ticks, so it reveals even if the user
 // isn't scrolling at the moment the video finishes buffering.
-function hidePosterWhenReady(video, poster, onReveal) {
+function hidePosterWhenReady(video, poster) {
   function reveal() {
     if (video.readyState < 2) return;
     poster.classList.add("hidden");
     video.removeEventListener("loadeddata", reveal);
     video.removeEventListener("canplay", reveal);
     video.removeEventListener("canplaythrough", reveal);
-    if (onReveal) onReveal();
   }
-  if (video.readyState >= 2) {
-    reveal();
-  } else {
+  if (video.readyState >= 2) reveal();
+  else {
     video.addEventListener("loadeddata", reveal);
     video.addEventListener("canplay", reveal);
     video.addEventListener("canplaythrough", reveal);
   }
 }
-
-const reefScrub    = bindScrubTrack(trackReef, videoReef, (p) => {
-  progressReef = p;
-  updateFish();
-  updateText();
-});
-const deepScrub    = bindScrubTrack(trackDeep, videoDeep, (p) => {
-  progressDeep = p;
-  updateFish();
-  updateText();
-});
-const currentScrub = bindScrubTrack(trackCurrent, videoCurrent, (p) => {
-  progressCurrent = p;
-  updateFish();
-  updateText();
-  checkLoopWrap(p);
-});
-
-hidePosterWhenReady(videoReef, posterReef, () => reefScrub.requestTick());
-hidePosterWhenReady(videoDeep, posterDeep, () => deepScrub.requestTick());
-hidePosterWhenReady(videoCurrent, posterCurrent, () => currentScrub.requestTick());
+hidePosterWhenReady(videoReef, posterReef);
+hidePosterWhenReady(videoDeep, posterDeep);
+hidePosterWhenReady(videoCurrent, posterCurrent);
 
 // ── LAZY LOAD via IntersectionObserver ───────────────────────
 const lazyObs = new IntersectionObserver((entries) => {
   entries.forEach(entry => {
     if (entry.isIntersecting) {
       const trackEl = entry.target;
-      if (trackEl === trackReef) reefScrub.requestVideoLoad();
-      else if (trackEl === trackDeep) deepScrub.requestVideoLoad();
-      else if (trackEl === trackCurrent) currentScrub.requestVideoLoad();
+      if (trackEl === trackReef) videoReef.load();
+      else if (trackEl === trackDeep) videoDeep.load();
+      else if (trackEl === trackCurrent) videoCurrent.load();
       lazyObs.unobserve(trackEl);
     }
   });
@@ -356,6 +313,18 @@ lazyObs.observe(trackReef);
 lazyObs.observe(trackDeep);
 lazyObs.observe(trackCurrent);
 
+// ── SMOOTH BACKGROUND SCRUB ────────────────────────────────────
+// Eases each video's currentTime toward the scroll-driven target every
+// frame instead of snapping to it, so scrubbing reads as a fluid glide
+// rather than a hard frame jump on every scroll tick.
+const smoothTime = { reef: 0, deep: 0, current: 0 };
+function smoothScrub(video, localProgress, duration, key) {
+  if (!duration || !Number.isFinite(duration)) return;
+  const target = clamp(localProgress * duration, 0, duration);
+  smoothTime[key] = lerp(smoothTime[key], target, 0.1);
+  if (video.readyState >= 2) video.currentTime = smoothTime[key];
+}
+
 // ── COMBINED SCROLL PROGRESS ─────────────────────────────────
 // Weights: reef=320vh, deep=420vh, current=300vh → total=1040vh
 // Combined progress maps 0→1 across all three tracks
@@ -364,82 +333,92 @@ const REEF_W = 320 / TOTAL_H;
 const DEEP_W = 420 / TOTAL_H;
 const CURR_W = 300 / TOTAL_H;
 
-function getCombinedProgress() {
-  // Which track are we in?
-  const reefRect    = trackReef.getBoundingClientRect();
-  const deepRect    = trackDeep.getBoundingClientRect();
-  const currRect    = trackCurrent.getBoundingClientRect();
-
-  // Use scrollTop-based approach for reliability
+function getCombinedProgress(pReef, pDeep, pCurrent) {
   const scrollY = window.scrollY;
-  const reefHeight    = trackReef.offsetHeight    - window.innerHeight;
-  const deepStart     = trackReef.offsetHeight;
-  const deepHeight    = trackDeep.offsetHeight    - window.innerHeight;
-  const currentStart  = trackReef.offsetHeight + trackDeep.offsetHeight;
-  const currentHeight = trackCurrent.offsetHeight - window.innerHeight;
+  const deepStart    = trackReef.offsetHeight;
+  const currentStart = trackReef.offsetHeight + trackDeep.offsetHeight;
 
-  let combined = 0;
-  if (scrollY <= trackReef.offsetHeight) {
-    // In reef track
-    const p = reefHeight > 0 ? Math.min(Math.max(scrollY / reefHeight, 0), 1) : 0;
-    combined = p * REEF_W;
-  } else if (scrollY <= currentStart) {
-    // In deep track
-    const pDeep = deepHeight > 0
-      ? Math.min(Math.max((scrollY - deepStart) / deepHeight, 0), 1) : 0;
-    combined = REEF_W + pDeep * DEEP_W;
-  } else {
-    // In current track
-    const pCurr = currentHeight > 0
-      ? Math.min(Math.max((scrollY - currentStart) / currentHeight, 0), 1) : 0;
-    combined = REEF_W + DEEP_W + pCurr * CURR_W;
-  }
-  return Math.min(Math.max(combined, 0), 1);
+  let combined;
+  if (scrollY <= deepStart) combined = pReef * REEF_W;
+  else if (scrollY <= currentStart) combined = REEF_W + pDeep * DEEP_W;
+  else combined = REEF_W + DEEP_W + pCurrent * CURR_W;
+  return clamp01(combined);
+}
+
+// ── SCENE CROSS-FADE ────────────────────────────────────────────
+// Fades the *inner* content of each scene layer near track boundaries
+// (rule 7: never animate the container, only its children) so one scene
+// dissolves into the next instead of hard-cutting between videos.
+const FADE_ZONE = 0.02;
+function updateSceneOpacity(combined) {
+  const b1 = REEF_W;
+  const b2 = REEF_W + DEEP_W;
+
+  let reefOp = 1;
+  if (combined > b1 - FADE_ZONE) reefOp = 1 - clamp01((combined - (b1 - FADE_ZONE)) / (2 * FADE_ZONE));
+
+  let deepOp = 1;
+  if (combined < b1 + FADE_ZONE) deepOp = clamp01((combined - (b1 - FADE_ZONE)) / (2 * FADE_ZONE));
+  else if (combined > b2 - FADE_ZONE) deepOp = 1 - clamp01((combined - (b2 - FADE_ZONE)) / (2 * FADE_ZONE));
+
+  let currOp = 1;
+  if (combined < b2 + FADE_ZONE) currOp = clamp01((combined - (b2 - FADE_ZONE)) / (2 * FADE_ZONE));
+
+  sceneReefInner.style.opacity = reefOp;
+  sceneDeepInner.style.opacity = deepOp;
+  sceneCurrentInner.style.opacity = currOp;
 }
 
 // ── FISH LAYER ───────────────────────────────────────────────
 const fishEl = document.getElementById("fish");
 
+// yPercent values sit lower than the text's vertical center so the fish
+// never visually collides with the centered hero/closing copy.
 const fishPath = [
-  { progress: 0.00, xPercent: 50, yPercent: 60, scale: 1.0,  flip: false },
-  { progress: 0.15, xPercent: 30, yPercent: 45, scale: 1.1,  flip: true  },
-  { progress: 0.30, xPercent: 65, yPercent: 55, scale: 0.9,  flip: false },
-  { progress: 0.45, xPercent: 40, yPercent: 40, scale: 1.0,  flip: true  },
-  { progress: 0.60, xPercent: 55, yPercent: 60, scale: 1.0,  flip: false },
-  { progress: 0.75, xPercent: 35, yPercent: 50, scale: 0.85, flip: true  },
-  { progress: 0.90, xPercent: 50, yPercent: 45, scale: 1.0,  flip: false },
-  { progress: 1.00, xPercent: 50, yPercent: 60, scale: 1.0,  flip: false },
+  { progress: 0.00, xPercent: 50, yPercent: 68, scale: 1.0,  flip: false },
+  { progress: 0.15, xPercent: 30, yPercent: 52, scale: 1.1,  flip: true  },
+  { progress: 0.30, xPercent: 65, yPercent: 62, scale: 0.9,  flip: false },
+  { progress: 0.45, xPercent: 40, yPercent: 48, scale: 1.0,  flip: true  },
+  { progress: 0.60, xPercent: 55, yPercent: 68, scale: 1.0,  flip: false },
+  { progress: 0.75, xPercent: 35, yPercent: 58, scale: 0.85, flip: true  },
+  { progress: 0.90, xPercent: 50, yPercent: 52, scale: 1.0,  flip: false },
+  { progress: 1.00, xPercent: 50, yPercent: 68, scale: 1.0,  flip: false },
 ];
 
-function lerp(a, b, t) { return a + (b - a) * t; }
+// Displayed fish state eases toward its target each frame (including the
+// flip, which glides its scaleX sign through zero like a natural turn)
+// instead of teleporting, so movement reads as swimming, not snapping.
+let fishX = 50, fishY = 68, fishScale = 1.0, fishFlipSign = 1;
 
-function updateFish() {
-  const p = getCombinedProgress();
+function updateFish(combined) {
+  const p = combined;
   let i = 0;
   for (let j = 0; j < fishPath.length - 1; j++) {
-    if (p >= fishPath[j].progress && p <= fishPath[j + 1].progress) {
-      i = j; break;
-    }
+    if (p >= fishPath[j].progress && p <= fishPath[j + 1].progress) { i = j; break; }
     if (j === fishPath.length - 2) i = j;
   }
   const a = fishPath[i];
   const b = fishPath[i + 1];
   const t = a.progress === b.progress ? 0 : (p - a.progress) / (b.progress - a.progress);
-  const x  = lerp(a.xPercent, b.xPercent, t);
-  const y  = lerp(a.yPercent, b.yPercent, t);
-  const sc = lerp(a.scale, b.scale, t);
-  const flip = t < 0.5 ? a.flip : b.flip;
+  const targetX     = lerp(a.xPercent, b.xPercent, t);
+  const targetY     = lerp(a.yPercent, b.yPercent, t);
+  const targetScale = lerp(a.scale, b.scale, t);
+  const targetFlip  = (t < 0.5 ? a.flip : b.flip) ? -1 : 1;
 
-  fishEl.style.left = x + "vw";
-  fishEl.style.top  = y + "vh";
+  fishX        = lerp(fishX, targetX, 0.06);
+  fishY        = lerp(fishY, targetY, 0.06);
+  fishScale    = lerp(fishScale, targetScale, 0.06);
+  fishFlipSign = lerp(fishFlipSign, targetFlip, 0.08);
+
+  fishEl.style.left = fishX + "vw";
+  fishEl.style.top  = fishY + "vh";
   fishEl.style.transform =
-    `translate(-50%,-50%) scaleX(${flip ? -1 : 1}) scale(${sc})`;
+    `translate(-50%,-50%) scaleX(${fishFlipSign}) scale(${fishScale})`;
 }
 
 // ── TEXT OVERLAYS ─────────────────────────────────────────────
-const textHero     = document.getElementById("text-hero");
-const textPersonal = document.getElementById("text-personal");
-const textClosing  = document.getElementById("text-closing");
+const textHero    = document.getElementById("text-hero");
+const textClosing = document.getElementById("text-closing");
 
 function fadeValue(p, inStart, inEnd, outStart, outEnd) {
   if (p < inStart) return 0;
@@ -449,19 +428,11 @@ function fadeValue(p, inStart, inEnd, outStart, outEnd) {
   return 0;
 }
 
-function updateText() {
-  const combined = getCombinedProgress();
-
+function updateText(combined) {
   // HERO: reef progress 0.00-0.15 → combined 0 to 0.15*REEF_W
   const heroMax  = 0.15 * REEF_W;
   const heroFade = fadeValue(combined, -0.001, 0, heroMax * 0.7, heroMax);
   textHero.style.opacity = heroFade;
-
-  // PERSONAL: reef progress 0.55-0.78 → combined
-  const pMin = (0.55 * REEF_W);
-  const pMax = (0.78 * REEF_W);
-  const persFade = fadeValue(combined, pMin, pMin + 0.015, pMax - 0.01, pMax);
-  textPersonal.style.opacity = persFade;
 
   // CLOSING: current track progress 0.85-1.0 → combined REEF_W+DEEP_W + 0.85*CURR_W
   const cMin = REEF_W + DEEP_W + 0.85 * CURR_W;
@@ -472,7 +443,6 @@ function updateText() {
 
 // ── LOOP WRAP ────────────────────────────────────────────────
 let loopCooldown = false;
-let dartTimeout  = null;
 
 function checkLoopWrap(currentProgress) {
   if (loopCooldown) return;
@@ -487,9 +457,10 @@ function checkLoopWrap(currentProgress) {
     // Jump scroll back to top
     lenis.scrollTo(0, { immediate: true });
     videoReef.currentTime = 0;
+    smoothTime.reef = 0;
 
     // Restore idle fish after 1s
-    dartTimeout = setTimeout(() => {
+    setTimeout(() => {
       fishEl.src = "fish-idle.webm";
       fishEl.load();
       fishEl.play().catch(() => {});
@@ -503,13 +474,29 @@ function checkLoopWrap(currentProgress) {
   }
 }
 
-// ── ALSO DRIVE updateFish ON SCROLL ──────────────────────────
-window.addEventListener("scroll", () => { updateFish(); updateText(); }, { passive: true });
-lenis.on("scroll", () => { updateFish(); updateText(); });
+// ── MAIN LOOP ────────────────────────────────────────────────
+// A single continuous rAF loop (rather than scroll-event-gated ticks)
+// drives every scroll-linked effect, so motion stays smooth regardless
+// of how large or fast a given scroll/wheel delta was.
+function mainLoop() {
+  const pReef    = trackLocalProgress(trackReef);
+  const pDeep    = trackLocalProgress(trackDeep);
+  const pCurrent = trackLocalProgress(trackCurrent);
 
-// ── INIT ─────────────────────────────────────────────────────
-updateFish();
-updateText();
+  smoothScrub(videoReef, pReef, durationReef, "reef");
+  smoothScrub(videoDeep, pDeep, durationDeep, "deep");
+  smoothScrub(videoCurrent, pCurrent, durationCurrent, "current");
+
+  const combined = getCombinedProgress(pReef, pDeep, pCurrent);
+
+  updateSceneOpacity(combined);
+  updateFish(combined);
+  updateText(combined);
+  checkLoopWrap(pCurrent);
+
+  requestAnimationFrame(mainLoop);
+}
+requestAnimationFrame(mainLoop);
 
 ScrollTrigger.refresh();
 </script>
