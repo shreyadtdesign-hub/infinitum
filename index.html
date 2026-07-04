@@ -74,6 +74,104 @@
 
   .track-poster.hidden { opacity: 0; pointer-events: none; }
 
+  /* ── VIGNETTE (unifies contrast/legibility across all scenes) ── */
+  .vignette {
+    position: fixed;
+    inset: 0;
+    z-index: 10;
+    pointer-events: none;
+    background:
+      radial-gradient(ellipse at center, rgba(4,16,26,0) 35%, rgba(4,16,26,0.65) 100%),
+      linear-gradient(to bottom, rgba(4,16,26,0.35) 0%, rgba(4,16,26,0) 18%, rgba(4,16,26,0) 72%, rgba(4,16,26,0.6) 100%);
+  }
+
+  /* ── FILM GRAIN ─────────────────────────────────────────────── */
+  .grain {
+    position: fixed;
+    inset: -60px;
+    z-index: 11;
+    pointer-events: none;
+    opacity: 0.05;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+    background-repeat: repeat;
+    animation: grainShift 8s steps(8) infinite;
+  }
+
+  @keyframes grainShift {
+    0%    { transform: translate(0,0); }
+    12.5% { transform: translate(-2%,2%); }
+    25%   { transform: translate(2%,-2%); }
+    37.5% { transform: translate(-1%,-1%); }
+    50%   { transform: translate(1%,2%); }
+    62.5% { transform: translate(-2%,1%); }
+    75%   { transform: translate(2%,2%); }
+    87.5% { transform: translate(-1%,-2%); }
+    100%  { transform: translate(0,0); }
+  }
+
+  /* ── SCROLL CUE (first-load only, fades on first scroll) ────── */
+  .scroll-cue {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 60;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.6s ease;
+  }
+  .scroll-cue span {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 10px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: rgba(234,243,241,0.45);
+  }
+  .scroll-cue .chevron {
+    width: 8px;
+    height: 8px;
+    border-right: 1px solid rgba(234,243,241,0.45);
+    border-bottom: 1px solid rgba(234,243,241,0.45);
+    transform: rotate(45deg);
+    animation: chevronBob 1.8s ease-in-out infinite;
+  }
+  @keyframes chevronBob {
+    0%, 100% { transform: rotate(45deg) translate(0,0); opacity: 0.4; }
+    50%      { transform: rotate(45deg) translate(3px,3px); opacity: 1; }
+  }
+
+  /* ── LOOP FADE MASK (hides the scroll-reset cut) ────────────── */
+  .loop-fade {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    background: #04101A;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  /* ── MUTE TOGGLE ─────────────────────────────────────────────── */
+  #mute-toggle {
+    position: fixed;
+    bottom: 24px;
+    right: 28px;
+    z-index: 100;
+    background: none;
+    border: none;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.5px;
+    color: rgba(234,243,241,0.5);
+    cursor: pointer;
+    transition: color 0.2s;
+  }
+  #mute-toggle:hover { color: rgba(234,243,241,0.85); }
+
   /* ── FISH LAYER ──────────────────────────────────────────── */
   .fish-layer {
     position: fixed;
@@ -101,7 +199,7 @@
     pointer-events: none;
     opacity: 0;
     text-align: center;
-    padding: 0 5vw 8vh;
+    padding: 0 5vw 12vh;
   }
 
   .text-overlay.active { pointer-events: none; }
@@ -209,6 +307,10 @@
   </div>
 </div>
 
+<!-- ── VIGNETTE + GRAIN ─────────────────────────────────────────── -->
+<div class="vignette"></div>
+<div class="grain"></div>
+
 <!-- ── FISH LAYER ───────────────────────────────────────────── -->
 <video class="fish-layer" id="fish" muted playsinline loop autoplay>
   <source src="fish-idle.webm" type="video/webm">
@@ -223,6 +325,18 @@
 <div class="text-overlay" id="text-closing">
   <div class="closing-main">Lost in the depths, found in the infinite.</div>
 </div>
+
+<!-- ── SCROLL CUE ───────────────────────────────────────────── -->
+<div class="scroll-cue" id="scroll-cue">
+  <span>Scroll</span>
+  <div class="chevron"></div>
+</div>
+
+<!-- ── LOOP FADE MASK ───────────────────────────────────────── -->
+<div class="loop-fade" id="loop-fade"></div>
+
+<!-- ── AMBIENT SOUND TOGGLE ─────────────────────────────────── -->
+<button id="mute-toggle" aria-label="Toggle ambient sound">Sound Off</button>
 
 <script>
 // ── LENIS ───────────────────────────────────────────────────
@@ -350,6 +464,18 @@ function getCombinedProgress(pReef, pDeep, pCurrent) {
 // (rule 7: never animate the container, only its children) so one scene
 // dissolves into the next instead of hard-cutting between videos.
 const FADE_ZONE = 0.02;
+
+// ── CURSOR PARALLAX ─────────────────────────────────────────────
+// A few px of eased background drift toward the cursor adds depth
+// without being distracting. Applied to the same .scene-inner children
+// that the cross-fade animates (never the fixed .scene-layer container).
+let mouseNormX = 0, mouseNormY = 0;
+window.addEventListener("mousemove", (e) => {
+  mouseNormX = (e.clientX / window.innerWidth) * 2 - 1;
+  mouseNormY = (e.clientY / window.innerHeight) * 2 - 1;
+});
+let parallaxX = 0, parallaxY = 0;
+
 function updateSceneOpacity(combined) {
   const b1 = REEF_W;
   const b2 = REEF_W + DEEP_W;
@@ -364,9 +490,16 @@ function updateSceneOpacity(combined) {
   let currOp = 1;
   if (combined < b2 + FADE_ZONE) currOp = clamp01((combined - (b2 - FADE_ZONE)) / (2 * FADE_ZONE));
 
+  parallaxX = lerp(parallaxX, mouseNormX * 10, 0.03);
+  parallaxY = lerp(parallaxY, mouseNormY * 6, 0.03);
+  const parallaxTransform = `translate(${parallaxX}px, ${parallaxY}px) scale(1.04)`;
+
   sceneReefInner.style.opacity = reefOp;
   sceneDeepInner.style.opacity = deepOp;
   sceneCurrentInner.style.opacity = currOp;
+  sceneReefInner.style.transform = parallaxTransform;
+  sceneDeepInner.style.transform = parallaxTransform;
+  sceneCurrentInner.style.transform = parallaxTransform;
 }
 
 // ── FISH LAYER ───────────────────────────────────────────────
@@ -390,7 +523,7 @@ const fishPath = [
 // instead of teleporting, so movement reads as swimming, not snapping.
 let fishX = 50, fishY = 60, fishScale = 1.0, fishFlipSign = 1;
 
-function updateFish(combined) {
+function updateFish(combined, now) {
   const p = combined;
   let i = 0;
   for (let j = 0; j < fishPath.length - 1; j++) {
@@ -410,8 +543,13 @@ function updateFish(combined) {
   fishScale    = lerp(fishScale, targetScale, 0.06);
   fishFlipSign = lerp(fishFlipSign, targetFlip, 0.08);
 
-  fishEl.style.left = fishX + "vw";
-  fishEl.style.top  = fishY + "vh";
+  // Subtle idle "breathing" drift so the fish reads as alive even when
+  // scroll is stationary and its eased position has settled.
+  const bobX = Math.sin(now / 1400) * 1.2;
+  const bobY = Math.cos(now / 1100) * 1.0;
+
+  fishEl.style.left = (fishX + bobX) + "vw";
+  fishEl.style.top  = (fishY + bobY) + "vh";
   fishEl.style.transform =
     `translate(-50%,-50%) scaleX(${fishFlipSign}) scale(${fishScale})`;
 }
@@ -428,57 +566,150 @@ function fadeValue(p, inStart, inEnd, outStart, outEnd) {
   return 0;
 }
 
+// Text rises slightly and sharpens into focus as it fades in, rather
+// than a flat opacity cut — reads as editorial/cinematic rather than a
+// basic CSS fade.
+function applyTextEntrance(el, fade) {
+  el.style.opacity = fade;
+  el.style.transform = `translateY(${lerp(14, 0, fade)}px)`;
+  el.style.filter = `blur(${lerp(6, 0, fade)}px)`;
+}
+
 function updateText(combined) {
   // HERO: reef progress 0.00-0.15 → combined 0 to 0.15*REEF_W
   const heroMax  = 0.15 * REEF_W;
   const heroFade = fadeValue(combined, -0.001, 0, heroMax * 0.7, heroMax);
-  textHero.style.opacity = heroFade;
+  applyTextEntrance(textHero, heroFade);
 
   // CLOSING: current track progress 0.85-1.0 → combined REEF_W+DEEP_W + 0.85*CURR_W
   const cMin = REEF_W + DEEP_W + 0.85 * CURR_W;
   const cMax = REEF_W + DEEP_W + 1.00 * CURR_W;
   const closeFade = fadeValue(combined, cMin, cMin + 0.01, cMax - 0.005, cMax);
-  textClosing.style.opacity = closeFade;
+  applyTextEntrance(textClosing, closeFade);
+}
+
+// ── SCROLL CUE ─────────────────────────────────────────────────
+const scrollCueEl = document.getElementById("scroll-cue");
+function updateScrollCue(combined) {
+  scrollCueEl.style.opacity = combined < 0.01 ? "1" : "0";
 }
 
 // ── LOOP WRAP ────────────────────────────────────────────────
+// A brief fade-to-ink masks the instant scroll-reset so the loop reads
+// as an intentional cut rather than a jarring jump.
 let loopCooldown = false;
+const loopFadeEl = document.getElementById("loop-fade");
 
 function checkLoopWrap(currentProgress) {
   if (loopCooldown) return;
   if (currentProgress >= 0.995) {
     loopCooldown = true;
 
-    // Fish dart swap
-    fishEl.src = "fish-dart.webm";
-    fishEl.load();
-    fishEl.play().catch(() => {});
+    loopFadeEl.style.transition = "opacity 0.3s ease";
+    loopFadeEl.style.opacity = "1";
 
-    // Jump scroll back to top
-    lenis.scrollTo(0, { immediate: true });
-    videoReef.currentTime = 0;
-    smoothTime.reef = 0;
+    setTimeout(() => {
+      // Fish dart swap
+      fishEl.src = "fish-dart.webm";
+      fishEl.load();
+      fishEl.play().catch(() => {});
 
-    // Restore idle fish after 1s
+      // Jump scroll back to top while the screen is masked
+      lenis.scrollTo(0, { immediate: true });
+      videoReef.currentTime = 0;
+      smoothTime.reef = 0;
+
+      requestAnimationFrame(() => {
+        loopFadeEl.style.opacity = "0";
+      });
+    }, 300);
+
+    // Restore idle fish after the dart plays
     setTimeout(() => {
       fishEl.src = "fish-idle.webm";
       fishEl.load();
       fishEl.play().catch(() => {});
 
-      // Release cooldown after another 200ms
+      // Release cooldown shortly after
       setTimeout(() => { loopCooldown = false; }, 200);
-    }, 1000);
+    }, 1300);
 
     // Safety release
-    setTimeout(() => { loopCooldown = false; }, 1600);
+    setTimeout(() => { loopCooldown = false; }, 1900);
   }
 }
+
+// ── AMBIENT SOUND (synthesized — no audio asset needed) ─────────
+// A low detuned drone + slow filter LFO + soft noise bed for a subtle
+// underwater ambience. Built lazily on the user's first click so it
+// respects browser autoplay-audio policy (requires a user gesture).
+let audioCtx = null, masterGain = null, soundOn = false;
+
+function buildAmbientAudio() {
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  masterGain = audioCtx.createGain();
+  masterGain.gain.value = 0;
+  masterGain.connect(audioCtx.destination);
+
+  const filter = audioCtx.createBiquadFilter();
+  filter.type = "lowpass";
+  filter.frequency.value = 500;
+  filter.connect(masterGain);
+
+  [55, 55.6].forEach((freq) => {
+    const osc = audioCtx.createOscillator();
+    osc.type = "sine";
+    osc.frequency.value = freq;
+    const oscGain = audioCtx.createGain();
+    oscGain.gain.value = 0.12;
+    osc.connect(oscGain);
+    oscGain.connect(filter);
+    osc.start();
+  });
+
+  const lfo = audioCtx.createOscillator();
+  lfo.frequency.value = 0.07;
+  const lfoGain = audioCtx.createGain();
+  lfoGain.gain.value = 220;
+  lfo.connect(lfoGain);
+  lfoGain.connect(filter.frequency);
+  lfo.start();
+
+  // Soft filtered noise bed for a "current" texture
+  const bufferSize = 2 * audioCtx.sampleRate;
+  const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+  const data = noiseBuffer.getChannelData(0);
+  for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+  const noise = audioCtx.createBufferSource();
+  noise.buffer = noiseBuffer;
+  noise.loop = true;
+  const noiseFilter = audioCtx.createBiquadFilter();
+  noiseFilter.type = "bandpass";
+  noiseFilter.frequency.value = 800;
+  const noiseGain = audioCtx.createGain();
+  noiseGain.gain.value = 0.03;
+  noise.connect(noiseFilter);
+  noiseFilter.connect(noiseGain);
+  noiseGain.connect(masterGain);
+  noise.start();
+}
+
+const muteToggle = document.getElementById("mute-toggle");
+muteToggle.addEventListener("click", () => {
+  if (!audioCtx) buildAmbientAudio();
+  if (audioCtx.state === "suspended") audioCtx.resume();
+
+  soundOn = !soundOn;
+  masterGain.gain.cancelScheduledValues(audioCtx.currentTime);
+  masterGain.gain.linearRampToValueAtTime(soundOn ? 0.4 : 0, audioCtx.currentTime + 0.8);
+  muteToggle.textContent = soundOn ? "Sound On" : "Sound Off";
+});
 
 // ── MAIN LOOP ────────────────────────────────────────────────
 // A single continuous rAF loop (rather than scroll-event-gated ticks)
 // drives every scroll-linked effect, so motion stays smooth regardless
 // of how large or fast a given scroll/wheel delta was.
-function mainLoop() {
+function mainLoop(now) {
   const pReef    = trackLocalProgress(trackReef);
   const pDeep    = trackLocalProgress(trackDeep);
   const pCurrent = trackLocalProgress(trackCurrent);
@@ -490,8 +721,9 @@ function mainLoop() {
   const combined = getCombinedProgress(pReef, pDeep, pCurrent);
 
   updateSceneOpacity(combined);
-  updateFish(combined);
+  updateFish(combined, now);
   updateText(combined);
+  updateScrollCue(combined);
   checkLoopWrap(pCurrent);
 
   requestAnimationFrame(mainLoop);
