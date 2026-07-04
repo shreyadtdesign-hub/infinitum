@@ -96,12 +96,12 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-end;
     z-index: 60;
     pointer-events: none;
     opacity: 0;
     text-align: center;
-    padding: 0 5vw;
+    padding: 0 5vw 8vh;
   }
 
   .text-overlay.active { pointer-events: none; }
@@ -372,23 +372,23 @@ function updateSceneOpacity(combined) {
 // ── FISH LAYER ───────────────────────────────────────────────
 const fishEl = document.getElementById("fish");
 
-// yPercent values sit lower than the text's vertical center so the fish
-// never visually collides with the centered hero/closing copy.
+// Fish swims through the upper/mid frame; text overlays anchor to the
+// bottom of the screen, so the two don't visually collide.
 const fishPath = [
-  { progress: 0.00, xPercent: 50, yPercent: 68, scale: 1.0,  flip: false },
-  { progress: 0.15, xPercent: 30, yPercent: 52, scale: 1.1,  flip: true  },
-  { progress: 0.30, xPercent: 65, yPercent: 62, scale: 0.9,  flip: false },
-  { progress: 0.45, xPercent: 40, yPercent: 48, scale: 1.0,  flip: true  },
-  { progress: 0.60, xPercent: 55, yPercent: 68, scale: 1.0,  flip: false },
-  { progress: 0.75, xPercent: 35, yPercent: 58, scale: 0.85, flip: true  },
-  { progress: 0.90, xPercent: 50, yPercent: 52, scale: 1.0,  flip: false },
-  { progress: 1.00, xPercent: 50, yPercent: 68, scale: 1.0,  flip: false },
+  { progress: 0.00, xPercent: 50, yPercent: 60, scale: 1.0,  flip: false },
+  { progress: 0.15, xPercent: 30, yPercent: 45, scale: 1.1,  flip: true  },
+  { progress: 0.30, xPercent: 65, yPercent: 55, scale: 0.9,  flip: false },
+  { progress: 0.45, xPercent: 40, yPercent: 40, scale: 1.0,  flip: true  },
+  { progress: 0.60, xPercent: 55, yPercent: 60, scale: 1.0,  flip: false },
+  { progress: 0.75, xPercent: 35, yPercent: 50, scale: 0.85, flip: true  },
+  { progress: 0.90, xPercent: 50, yPercent: 45, scale: 1.0,  flip: false },
+  { progress: 1.00, xPercent: 50, yPercent: 60, scale: 1.0,  flip: false },
 ];
 
 // Displayed fish state eases toward its target each frame (including the
 // flip, which glides its scaleX sign through zero like a natural turn)
 // instead of teleporting, so movement reads as swimming, not snapping.
-let fishX = 50, fishY = 68, fishScale = 1.0, fishFlipSign = 1;
+let fishX = 50, fishY = 60, fishScale = 1.0, fishFlipSign = 1;
 
 function updateFish(combined) {
   const p = combined;
