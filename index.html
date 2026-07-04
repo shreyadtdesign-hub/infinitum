@@ -19,14 +19,6 @@
   html, body {
     background: #04101A;
     color: #EAF3F1;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    text-rendering: optimizeLegibility;
-    cursor: none;
-  }
-
-  @media (hover: none) {
-    html, body { cursor: auto; }
   }
 
   /* ── TRACKS (invisible scroll-length spacers) ──────────────── */
@@ -67,9 +59,6 @@
     height: 100%;
     object-fit: cover;
     object-position: center;
-    /* Unifies color temperature across the three separately-lit scenes
-       into one consistent "grade" rather than relying on cross-fade alone. */
-    filter: saturate(1.1) contrast(1.06) brightness(0.98) hue-rotate(-2deg);
   }
 
   .track-poster {
@@ -81,7 +70,6 @@
     object-position: center;
     transition: opacity 0.4s;
     z-index: 1;
-    filter: saturate(1.1) contrast(1.06) brightness(0.98) hue-rotate(-2deg);
   }
 
   .track-poster.hidden { opacity: 0; pointer-events: none; }
@@ -179,45 +167,10 @@
     font-size: 11px;
     letter-spacing: 0.5px;
     color: rgba(234,243,241,0.5);
-    cursor: none;
+    cursor: pointer;
     transition: color 0.2s;
   }
   #mute-toggle:hover { color: rgba(234,243,241,0.85); }
-
-  @media (hover: none) {
-    #mute-toggle { cursor: pointer; }
-  }
-
-  /* ── CUSTOM CURSOR ───────────────────────────────────────────── */
-  .cursor-dot {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: rgba(234,243,241,0.7);
-    pointer-events: none;
-    z-index: 300;
-    transform: translate(-50%, -50%);
-    transition: width 0.2s ease, height 0.2s ease, background 0.2s ease;
-    mix-blend-mode: difference;
-  }
-  .cursor-dot.hovering {
-    width: 22px;
-    height: 22px;
-    background: rgba(234,243,241,0.9);
-  }
-  @media (hover: none) {
-    .cursor-dot { display: none; }
-  }
-
-  /* ── REDUCED MOTION ──────────────────────────────────────────── */
-  @media (prefers-reduced-motion: reduce) {
-    .grain { animation: none; }
-    .scroll-cue .chevron { animation: none; }
-    .track-poster { transition: none; }
-  }
 
   /* ── FISH LAYER ──────────────────────────────────────────── */
   .fish-layer {
@@ -275,14 +228,9 @@
     text-decoration: none;
     z-index: 100;
     letter-spacing: 0.5px;
-    cursor: none;
     transition: color 0.2s;
   }
   #corner-link:hover { color: rgba(234,243,241,0.85); }
-
-  @media (hover: none) {
-    #corner-link { cursor: pointer; }
-  }
 
   /* ── HERO TEXT ───────────────────────────────────────────── */
   #text-hero .hero-main {
@@ -390,12 +338,9 @@
 <!-- ── AMBIENT SOUND TOGGLE ─────────────────────────────────── -->
 <button id="mute-toggle" aria-label="Toggle ambient sound">Sound Off</button>
 
-<!-- ── CUSTOM CURSOR ────────────────────────────────────────── -->
-<div class="cursor-dot" id="cursor-dot"></div>
-
 <script>
 // ── LENIS ───────────────────────────────────────────────────
-const lenis = new Lenis({ lerp: 0.075, smoothWheel: true, syncTouch: true, wheelMultiplier: 1, touchMultiplier: 1.2 });
+const lenis = new Lenis({ lerp: 0.075, smoothWheel: true, syncTouch: true });
 lenis.on("scroll", ScrollTrigger.update);
 gsap.ticker.add((time) => { lenis.raf(time * 1000); });
 gsap.ticker.lagSmoothing(0);
@@ -404,19 +349,6 @@ gsap.ticker.lagSmoothing(0);
 const clamp   = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
 const clamp01 = (v) => clamp(v, 0, 1);
 const lerp    = (a, b, t) => a + (b - a) * t;
-const easeInOutCubic = (t) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
-
-// Frame-rate-independent easing: a fixed lerp factor per call reaches its
-// target faster on a 120Hz display than a 60Hz one, since it runs twice as
-// often. Normalizing against elapsed time keeps motion speed consistent
-// across refresh rates and any frame-time jitter.
-const REF_FRAME_MS = 1000 / 60;
-function timeLerp(current, target, factor, dt) {
-  const adjusted = 1 - Math.pow(1 - factor, dt / REF_FRAME_MS);
-  return lerp(current, target, adjusted);
-}
-
-const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 // ── TRACK REFERENCES (invisible scroll-length spacers) ────────
 const trackReef    = document.getElementById("track-reef");
@@ -500,10 +432,10 @@ lazyObs.observe(trackCurrent);
 // frame instead of snapping to it, so scrubbing reads as a fluid glide
 // rather than a hard frame jump on every scroll tick.
 const smoothTime = { reef: 0, deep: 0, current: 0 };
-function smoothScrub(video, localProgress, duration, key, dt) {
+function smoothScrub(video, localProgress, duration, key) {
   if (!duration || !Number.isFinite(duration)) return;
   const target = clamp(localProgress * duration, 0, duration);
-  smoothTime[key] = timeLerp(smoothTime[key], target, 0.1, dt);
+  smoothTime[key] = lerp(smoothTime[key], target, 0.1);
   if (video.readyState >= 2) video.currentTime = smoothTime[key];
 }
 
@@ -538,20 +470,13 @@ const FADE_ZONE = 0.02;
 // without being distracting. Applied to the same .scene-inner children
 // that the cross-fade animates (never the fixed .scene-layer container).
 let mouseNormX = 0, mouseNormY = 0;
-const cursorDot = document.getElementById("cursor-dot");
 window.addEventListener("mousemove", (e) => {
   mouseNormX = (e.clientX / window.innerWidth) * 2 - 1;
   mouseNormY = (e.clientY / window.innerHeight) * 2 - 1;
-  cursorDot.style.left = e.clientX + "px";
-  cursorDot.style.top = e.clientY + "px";
-});
-[document.getElementById("corner-link"), document.getElementById("mute-toggle")].forEach((el) => {
-  el.addEventListener("mouseenter", () => cursorDot.classList.add("hovering"));
-  el.addEventListener("mouseleave", () => cursorDot.classList.remove("hovering"));
 });
 let parallaxX = 0, parallaxY = 0;
 
-function updateSceneOpacity(combined, dt) {
+function updateSceneOpacity(combined) {
   const b1 = REEF_W;
   const b2 = REEF_W + DEEP_W;
 
@@ -565,10 +490,8 @@ function updateSceneOpacity(combined, dt) {
   let currOp = 1;
   if (combined < b2 + FADE_ZONE) currOp = clamp01((combined - (b2 - FADE_ZONE)) / (2 * FADE_ZONE));
 
-  if (!reduceMotion) {
-    parallaxX = timeLerp(parallaxX, mouseNormX * 10, 0.03, dt);
-    parallaxY = timeLerp(parallaxY, mouseNormY * 6, 0.03, dt);
-  }
+  parallaxX = lerp(parallaxX, mouseNormX * 10, 0.03);
+  parallaxY = lerp(parallaxY, mouseNormY * 6, 0.03);
   const parallaxTransform = `translate(${parallaxX}px, ${parallaxY}px) scale(1.04)`;
 
   sceneReefInner.style.opacity = reefOp;
@@ -600,7 +523,7 @@ const fishPath = [
 // instead of teleporting, so movement reads as swimming, not snapping.
 let fishX = 50, fishY = 60, fishScale = 1.0, fishFlipSign = 1;
 
-function updateFish(combined, now, dt) {
+function updateFish(combined, now) {
   const p = combined;
   let i = 0;
   for (let j = 0; j < fishPath.length - 1; j++) {
@@ -615,15 +538,15 @@ function updateFish(combined, now, dt) {
   const targetScale = lerp(a.scale, b.scale, t);
   const targetFlip  = (t < 0.5 ? a.flip : b.flip) ? -1 : 1;
 
-  fishX        = timeLerp(fishX, targetX, 0.06, dt);
-  fishY        = timeLerp(fishY, targetY, 0.06, dt);
-  fishScale    = timeLerp(fishScale, targetScale, 0.06, dt);
-  fishFlipSign = timeLerp(fishFlipSign, targetFlip, 0.08, dt);
+  fishX        = lerp(fishX, targetX, 0.06);
+  fishY        = lerp(fishY, targetY, 0.06);
+  fishScale    = lerp(fishScale, targetScale, 0.06);
+  fishFlipSign = lerp(fishFlipSign, targetFlip, 0.08);
 
   // Subtle idle "breathing" drift so the fish reads as alive even when
   // scroll is stationary and its eased position has settled.
-  const bobX = reduceMotion ? 0 : Math.sin(now / 1400) * 1.2;
-  const bobY = reduceMotion ? 0 : Math.cos(now / 1100) * 1.0;
+  const bobX = Math.sin(now / 1400) * 1.2;
+  const bobY = Math.cos(now / 1100) * 1.0;
 
   fishEl.style.left = (fishX + bobX) + "vw";
   fishEl.style.top  = (fishY + bobY) + "vh";
@@ -645,13 +568,11 @@ function fadeValue(p, inStart, inEnd, outStart, outEnd) {
 
 // Text rises slightly and sharpens into focus as it fades in, rather
 // than a flat opacity cut — reads as editorial/cinematic rather than a
-// basic CSS fade. Eased through easeInOutCubic instead of linear so the
-// motion has a designed, weighted feel rather than a raw ramp.
+// basic CSS fade.
 function applyTextEntrance(el, fade) {
-  const eased = easeInOutCubic(clamp01(fade));
-  el.style.opacity = eased;
-  el.style.transform = `translateY(${lerp(14, 0, eased)}px)`;
-  el.style.filter = `blur(${lerp(6, 0, eased)}px)`;
+  el.style.opacity = fade;
+  el.style.transform = `translateY(${lerp(14, 0, fade)}px)`;
+  el.style.filter = `blur(${lerp(6, 0, fade)}px)`;
 }
 
 function updateText(combined) {
@@ -787,26 +708,20 @@ muteToggle.addEventListener("click", () => {
 // ── MAIN LOOP ────────────────────────────────────────────────
 // A single continuous rAF loop (rather than scroll-event-gated ticks)
 // drives every scroll-linked effect, so motion stays smooth regardless
-// of how large or fast a given scroll/wheel delta was. dt (ms since the
-// last frame) is threaded through every eased value so motion speed
-// stays consistent across refresh rates instead of scaling with fps.
-let lastFrameTime = null;
+// of how large or fast a given scroll/wheel delta was.
 function mainLoop(now) {
-  const dt = lastFrameTime === null ? REF_FRAME_MS : clamp(now - lastFrameTime, 0, 100);
-  lastFrameTime = now;
-
   const pReef    = trackLocalProgress(trackReef);
   const pDeep    = trackLocalProgress(trackDeep);
   const pCurrent = trackLocalProgress(trackCurrent);
 
-  smoothScrub(videoReef, pReef, durationReef, "reef", dt);
-  smoothScrub(videoDeep, pDeep, durationDeep, "deep", dt);
-  smoothScrub(videoCurrent, pCurrent, durationCurrent, "current", dt);
+  smoothScrub(videoReef, pReef, durationReef, "reef");
+  smoothScrub(videoDeep, pDeep, durationDeep, "deep");
+  smoothScrub(videoCurrent, pCurrent, durationCurrent, "current");
 
   const combined = getCombinedProgress(pReef, pDeep, pCurrent);
 
-  updateSceneOpacity(combined, dt);
-  updateFish(combined, now, dt);
+  updateSceneOpacity(combined);
+  updateFish(combined, now);
   updateText(combined);
   updateScrollCue(combined);
   checkLoopWrap(pCurrent);
